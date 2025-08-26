@@ -70,6 +70,13 @@ namespace WpfEGridApp
             BuildAllSections();
         }
 
+        // New method to open Standard Measurements window
+        private void OpenStandardMeasurements_Click(object sender, RoutedEventArgs e)
+        {
+            var standardMeasurementsWindow = new StandardMeasurementsWindow(this);
+            standardMeasurementsWindow.Show();
+        }
+
         private void UpdateExcelDisplayText()
         {
             if (string.IsNullOrEmpty(SelectedExcelFile) || worksheet == null)
@@ -77,6 +84,10 @@ namespace WpfEGridApp
                 ExcelDisplayText = "";
                 return;
             }
+
+            // Find next available row first
+            FindNextAvailableRowForDisplay();
+
             try
             {
                 string cellB = (worksheet.Cells[_currentExcelRow, 2] as Excel.Range)?.Value?.ToString() ?? "";
@@ -87,6 +98,38 @@ namespace WpfEGridApp
             {
                 MessageBox.Show($"Error reading Excel data for row {_currentExcelRow}: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 ExcelDisplayText = "";
+            }
+        }
+
+        private void FindNextAvailableRowForDisplay()
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(SelectedExcelFile) || worksheet == null)
+                    return;
+
+                // Find next row that doesn't have a measurement in column A
+                while (_currentExcelRow <= 1000) // Safety limit
+                {
+                    var cellA = (worksheet.Cells[_currentExcelRow, 1] as Excel.Range)?.Value;
+                    if (cellA == null || string.IsNullOrEmpty(cellA.ToString()))
+                    {
+                        // Found an empty row, check if it has content in B or C to display
+                        var cellB = (worksheet.Cells[_currentExcelRow, 2] as Excel.Range)?.Value?.ToString() ?? "";
+                        var cellC = (worksheet.Cells[_currentExcelRow, 3] as Excel.Range)?.Value?.ToString() ?? "";
+
+                        if (!string.IsNullOrEmpty(cellB) || !string.IsNullOrEmpty(cellC))
+                        {
+                            // Found a row with content to display
+                            break;
+                        }
+                    }
+                    _currentExcelRow++;
+                }
+            }
+            catch (Exception)
+            {
+                // If there's an error, just continue with current row
             }
         }
 
@@ -554,9 +597,38 @@ namespace WpfEGridApp
             }
 
             ResultText.Text = $"Shortest path: {totalDistance:F2} mm";
+
+            // Skip to next available row if current row already has a measurement
+            FindNextAvailableRow();
+
             LogMeasurementToExcel(totalDistance);
             _currentExcelRow++; // Move to next row
             UpdateExcelDisplayText();
+        }
+
+        private void FindNextAvailableRow()
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(SelectedExcelFile) || worksheet == null)
+                    return;
+
+                // Check if current row already has a measurement in column A
+                while (_currentExcelRow <= 1000) // Safety limit
+                {
+                    var cellA = (worksheet.Cells[_currentExcelRow, 1] as Excel.Range)?.Value;
+                    if (cellA == null || string.IsNullOrEmpty(cellA.ToString()))
+                    {
+                        // Found an empty row
+                        break;
+                    }
+                    _currentExcelRow++; // Move to next row
+                }
+            }
+            catch (Exception)
+            {
+                // If there's an error, just continue with current row
+            }
         }
 
         private void ResetSelection()
