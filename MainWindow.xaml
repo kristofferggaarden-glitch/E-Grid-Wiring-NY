@@ -274,10 +274,10 @@
                         Style="{StaticResource RoundedButtonStyle}" 
                         ToolTip="Remove the last measurement from the Excel file" Grid.Column="8"/>
 
-                <Button Content="Standard Measurements" Click="OpenStandardMeasurements_Click" Width="140" 
+                <Button Content="Standard Measurements" Click="OpenStandardMeasurements_Click" 
                         Style="{StaticResource RoundedButtonStyle}" 
                         Background="{StaticResource PrimaryBrush}"
-                        ToolTip="Open Standard Measurements window for automated measurements" Grid.Column="9"/>
+                        ToolTip="Open Standard Measurements window for automated measurements" Grid.Column="9" Grid.ColumnSpan="3" Margin="8,8,189,8"/>
 
                 <TextBlock x:Name="SelectedFileText" Text="{Binding SelectedExcelFile}" 
                           Style="{StaticResource SelectedFileStyle}" 
