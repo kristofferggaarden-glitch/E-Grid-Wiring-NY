@@ -244,6 +244,7 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="200"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
@@ -277,13 +278,23 @@
                 <Button Content="Standard Measurements" Click="OpenStandardMeasurements_Click" 
                         Style="{StaticResource RoundedButtonStyle}" 
                         Background="{StaticResource PrimaryBrush}"
-                        ToolTip="Open Standard Measurements window for automated measurements" Grid.Column="9" Grid.ColumnSpan="3" Margin="8,8,189,8"/>
+                        ToolTip="Open Standard Measurements window for automated measurements" Grid.Column="9" Width="140"/>
+
+                <Button Content="Component Mapping" Click="OpenComponentMapping_Click" 
+                        Style="{StaticResource RoundedButtonStyle}" 
+                        Background="#FFFF8C00"
+                        ToolTip="Set up component mappings for automatic measurements" Grid.Column="10" Width="130"/>
+
+                <Button Content="Automatisk måling av alle" Click="AutomaticMeasureAll_Click" 
+                        Style="{StaticResource RoundedButtonStyle}" 
+                        Background="{StaticResource AccentBrush}"
+                        ToolTip="Automatically measure all connections using component mappings" Grid.Column="11" Width="160"/>
 
                 <TextBlock x:Name="SelectedFileText" Text="{Binding SelectedExcelFile}" 
                           Style="{StaticResource SelectedFileStyle}" 
-                          ToolTip="Currently selected Excel file for logging" Grid.Column="11"/>
+                          ToolTip="Currently selected Excel file for logging" Grid.Column="12"/>
 
-                <TextBlock x:Name="ResultText" Style="{StaticResource ResultTextStyle}" Grid.Column="13" 
+                <TextBlock x:Name="ResultText" Style="{StaticResource ResultTextStyle}" Grid.Column="14" 
                           HorizontalAlignment="Right" Margin="0,0,15,0"/>
             </Grid>
 

@@ -23,6 +23,13 @@ namespace WpfEGridApp
         private Button _lockedButton; // Track the lock button for text updates
         private int _currentExcelRow = 2; // Start with row 2 (B2, C2)
 
+        // Nye fields for mapping
+        private ComponentMappingManager _componentMappingManager;
+        private string _currentMappingReference = "";
+        private string _currentMappingDescription = "";
+        private bool _isInMappingMode = false;
+        private Action<string, string> _mappingCompletedCallback;
+
         public int Sections
         {
             get => _sections;
@@ -60,7 +67,7 @@ namespace WpfEGridApp
         private object endPoint;
         private Excel.Application excelApp;
         private Excel.Workbook workbook;
-        private Excel.Worksheet worksheet;
+        public Excel.Worksheet worksheet; // Made public for ComponentMappingManager
 
         public MainWindow()
         {
@@ -77,7 +84,90 @@ namespace WpfEGridApp
             standardMeasurementsWindow.Show();
         }
 
-        private void UpdateExcelDisplayText()
+        // Method to open Component Mapping window
+        private void OpenComponentMapping_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(SelectedExcelFile))
+            {
+                MessageBox.Show("Velg først en Excel-fil", "Feil",
+                               MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (_componentMappingManager == null)
+            {
+                _componentMappingManager = new ComponentMappingManager(this, SelectedExcelFile);
+            }
+
+            var mappingWindow = new ComponentMappingWindow(this, _componentMappingManager);
+            mappingWindow.Show();
+        }
+
+        // Method for interactive mapping
+        public void StartInteractiveMapping(string excelReference, string description, Action<string, string> onCompleted)
+        {
+            _currentMappingReference = excelReference;
+            _currentMappingDescription = description;
+            _isInMappingMode = true;
+            _mappingCompletedCallback = onCompleted;
+
+            ResultText.Text = $"Klikk på grid-posisjonen for {excelReference}";
+
+            // Change background color on all cells to show mapping mode
+            foreach (var cell in allCells.Values)
+            {
+                cell.ButtonRef.Background = new SolidColorBrush(Color.FromRgb(100, 120, 140));
+            }
+
+            // Give focus to main window
+            this.Activate();
+            this.Focus();
+        }
+
+        // Method for automatic measuring of all connections
+        private void AutomaticMeasureAll_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(SelectedExcelFile) || worksheet == null)
+            {
+                MessageBox.Show("Velg først en Excel-fil", "Feil",
+                               MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (_componentMappingManager == null)
+            {
+                MessageBox.Show("Du må først sette opp component mappings. Bruk 'Component Mapping' knappen.",
+                               "Mappings mangler", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var result = MessageBox.Show(
+                "Dette vil automatisk måle alle ledninger som har component mappings. Fortsette?",
+                "Automatisk måling",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                try
+                {
+                    var processor = new ExcelConnectionProcessor(this, _componentMappingManager);
+                    var processedCount = processor.ProcessAllConnections();
+
+                    MessageBox.Show($"Automatisk måling fullført!\nProsesserte {processedCount} ledninger.",
+                                   "Ferdig", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                    UpdateExcelDisplayText();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Feil under automatisk måling: {ex.Message}", "Feil",
+                                   MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        public void UpdateExcelDisplayText()
         {
             if (string.IsNullOrEmpty(SelectedExcelFile) || worksheet == null)
             {
@@ -99,6 +189,12 @@ namespace WpfEGridApp
                 MessageBox.Show($"Error reading Excel data for row {_currentExcelRow}: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 ExcelDisplayText = "";
             }
+        }
+
+        // Public access to allCells for ComponentMappingManager
+        public Dictionary<(int, int), Cell> GetAllCells()
+        {
+            return allCells;
         }
 
         private void FindNextAvailableRowForDisplay()
@@ -236,13 +332,18 @@ namespace WpfEGridApp
                 if (InitializeExcel(SelectedExcelFile))
                 {
                     MessageBox.Show($"Excel file '{SelectedExcelFile}' selected and opened.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
-                    _currentExcelRow = 2; // Start at row 2
+                    _currentExcelRow = 2;
+
+                    // Initialize mapping manager for this file
+                    _componentMappingManager = new ComponentMappingManager(this, SelectedExcelFile);
+
                     UpdateExcelDisplayText();
                 }
                 else
                 {
                     SelectedExcelFile = null;
                     ExcelDisplayText = "";
+                    _componentMappingManager = null;
                 }
             }
         }
@@ -447,6 +548,37 @@ namespace WpfEGridApp
         private void Cell_Click(object sender, RoutedEventArgs e)
         {
             var btn = sender as Button;
+
+            // Handle mapping mode first
+            if (_isInMappingMode)
+            {
+                // Find grid position for this cell
+                var cell = allCells.Values.FirstOrDefault(c => c.ButtonRef == btn);
+                if (cell != null && !string.IsNullOrEmpty(_currentMappingReference))
+                {
+                    // Add mapping
+                    _componentMappingManager?.AddMapping(_currentMappingReference, cell.Row, cell.Col, _currentMappingDescription);
+
+                    MessageBox.Show($"Mappet {_currentMappingReference} til posisjon ({cell.Row}, {cell.Col})",
+                                   "Mapping lagret", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                    // Call callback
+                    _mappingCompletedCallback?.Invoke(_currentMappingReference, _currentMappingDescription);
+
+                    // End mapping mode
+                    _isInMappingMode = false;
+                    _currentMappingReference = "";
+                    _currentMappingDescription = "";
+                    _mappingCompletedCallback = null;
+
+                    // Reset grid colors
+                    ResetCellColors();
+                    ResultText.Text = "";
+                }
+                return;
+            }
+
+            // Original Cell_Click logic for normal measuring...
             if (_lockedPointA != null)
             {
                 if (endPoint != null)
@@ -472,6 +604,19 @@ namespace WpfEGridApp
                     ProcessPath();
                 }
             }
+        }
+
+        // Helper method to reset cell colors
+        private void ResetCellColors()
+        {
+            foreach (var cell in allCells.Values)
+                cell.ButtonRef.Background = new SolidColorBrush(Color.FromRgb(74, 90, 91));
+        }
+
+        // Public access to HasHorizontalNeighbor
+        public bool HasHorizontalNeighbor(int row, int col)
+        {
+            return allCells.ContainsKey((row, col - 1)) || allCells.ContainsKey((row, col + 1));
         }
 
         private void HandlePointClick(object sender, List<SpecialPoint> points)
@@ -651,11 +796,6 @@ namespace WpfEGridApp
             {
                 ResultText.Text = "";
             }
-        }
-
-        private bool HasHorizontalNeighbor(int row, int col)
-        {
-            return allCells.ContainsKey((row, col - 1)) || allCells.ContainsKey((row, col + 1));
         }
 
         private void HighlightPath(List<Cell> path)
